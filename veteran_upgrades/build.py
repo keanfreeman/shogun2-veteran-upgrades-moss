@@ -353,8 +353,11 @@ def build_catalog(camp):
                     "icon": icon_path(sk["icon"], bonus, available), "levels": []})
                 line["levels"].append(e["effect_value"])
         # Ability unlocks from the same MP skill list (one single-level line each), as vanilla
-        # ability keys attached to the family's unit copies. Abilities the unit already has are skipped.
-        native = {r["ability"] for r in ABIL_JUNC if r["unit_name"] == base}
+        # ability keys attached to the family's unit copies. Abilities any of the family's units already
+        # has are skipped, by key and by in-game name: MoSS renames abilities (its range_effect is
+        # "Flaming Arrows", its flaming_arrows_ability "High Volley"), so different keys can be the same.
+        native = {r["ability"] for r in ABIL_JUNC if r["unit_name"] in keys}
+        taken = {ABILITIES[a]["bullet_text"] for a in native if a in ABILITIES}
         abilities = []
         for sk in sorted((skills[s] for s in unit_skills[mp] if s in skills), key=lambda s: s["key"]):
             for e in effects.get(sk["key"], []):
@@ -363,8 +366,9 @@ def build_catalog(camp):
                     lines.setdefault("passive_" + bonus, {"key": "passive_" + bonus, "label": label, "bonus": bonus,
                         "advanced": True, "icon": STAT_ICON_PATH, "levels": [value], "kind": "passive"})
                 ab = RANGE_ABILITY if e["effect"] in RANGE_EFFECTS else ABILITY_MAP.get(e["effect"])
-                if ab and ab in ABILITIES and ab not in native and ab not in abilities:
+                if ab and ab in ABILITIES and ab not in native and ABILITIES[ab]["bullet_text"] not in taken:
                     abilities.append(ab)
+                    taken.add(ABILITIES[ab]["bullet_text"])
         if abilities:
             lines[ALL_ABILITIES] = {"key": ALL_ABILITIES, "label": "Abilities", "bonus": "ability",
                 "ability": abilities[0], "advanced": True, "icon": ability_icon(abilities[0]), "levels": [1.0],
