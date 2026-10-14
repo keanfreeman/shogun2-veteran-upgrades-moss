@@ -426,7 +426,8 @@ local function vu_refresh_panel()
 			elseif line.kind == "ability" then
 				tip = string.format("Ability: %s\n%s\n%s\nNew recruits get it from your next turn; use Retrain for units you already have.%s", line.label, line.desc,
 					owned > 0 and "Unlocked for every " .. fam.name .. "." or string.format("Cost: %d points (you have %d).", line.levels[1].cost, p.points),
-					line.gated and "\nAlso needs the usual research before it can be used." or "")
+					line.gated and ((line.research or "") ~= "" and "\nNeeds research before it can be used: " .. line.research .. "."
+						or "\nAlso needs the usual research before it can be used.") or "")
 			elseif line.kind == "passive" then
 				tip = string.format("%s\nThis unit frightens nearby enemies, lowering their morale.\n%s", line.label,
 					owned > 0 and "Unlocked." or string.format("Cost: %d points (you have %d).", line.levels[1].cost, p.points))

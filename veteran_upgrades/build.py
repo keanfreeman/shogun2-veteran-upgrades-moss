@@ -309,6 +309,29 @@ def enabled_abilities():
     return {r["unit_ability"] for r in load("effect_bonus_value_unit_ability_junctions_tables") if r["effect"] in used}
 
 
+def research_for():
+    """{gated ability: names of the technologies that enable it}, e.g. range_effect -> ["Flammable Arrow"]."""
+    names = {}
+    for path in [os.path.join(GAME_DATA, "local_en.pack")] + [os.path.join(GAME_DATA, p) for p in MOSS_PACKS]:
+        for n, _, _ in read_index(path):
+            if n.lower().endswith("technologies.loc"):
+                for k, v, _ in read_loc(extract(path, n))[1]:
+                    if k.startswith("technologies_onscreen_name_"):
+                        names[k[len("technologies_onscreen_name_"):]] = v
+    by_effect = {}
+    for r in load("technology_effects_junction_tables"):
+        name = names.get(r["technology"], "").strip()
+        if len(name) > 1:   # skips the custom-battle tech, which is named "."
+            by_effect.setdefault(r["effect"], set()).add(name)
+    out = {}
+    for r in load("effect_bonus_value_unit_ability_junctions_tables"):
+        out.setdefault(r["unit_ability"], set()).update(by_effect.get(r["effect"], ()))
+    return {ab: sorted(v) for ab, v in out.items() if v}
+
+
+RESEARCH = {}
+
+
 def ability_fits(ab, keys):
     """Can every unit of the family use this ability?
       * a gated ability needs something that enables it;
@@ -350,6 +373,7 @@ def build_catalog(camp):
     STATS = {r["key"]: r for r in load("unit_stats_land_tables")}
     PROJECTILE = {r["key"]: r.get("activated_projectile") for r in load("unit_special_abilities_tables")}
     ENABLED = enabled_abilities()
+    RESEARCH.clear(); RESEARCH.update(research_for())
     ICON_FILES = {n.lower().split("\\")[-1] for n, _, _ in read_index(DATA) if n.lower().startswith("ui\\battle ui\\button icons\\")}
     available = icon_files()
     square = portraits()
@@ -447,7 +471,10 @@ def build_catalog(camp):
                 "desc": "Unlocks all of: " + ", ".join(ABILITIES[ab]["bullet_text"] for ab in abilities) + ".\n"
                         + "\n".join(f"{ABILITIES[ab]['bullet_text']}: {ABILITIES[ab]['info_card_tooltip_text']}"
                                     for ab in abilities),
-                "gated": any(ABILITIES[ab]["requires_effect_enabling"] for ab in abilities)}
+                "gated": any(ABILITIES[ab]["requires_effect_enabling"] for ab in abilities),
+                # e.g. "Flammable Arrow (for Flaming Arrows)" - the tooltip names the research each gated ability needs
+                "research": ", ".join(f"{' or '.join(RESEARCH[ab])} (for {ABILITIES[ab]['bullet_text']})" for ab in abilities
+                                      if ABILITIES[ab]["requires_effect_enabling"] and ab in RESEARCH)}
         if not lines:
             continue
         lines = merge_stat_lines(lines)
@@ -691,7 +718,7 @@ def lua_data(catalog, camp):
             lines.append({"key": line["key"], "label": line["label"], "advanced": line["advanced"], "icon": line["icon"],
                           "bonus": line["bonus"], "stat": BONUS_LABEL.get(line["bonus"], line["label"]),
                           "kind": line["kind"], "column": line["column"], "row": line["row"],
-                          "desc": line.get("desc", ""), "gated": line.get("gated", False),
+                          "desc": line.get("desc", ""), "gated": line.get("gated", False), "research": line.get("research", ""),
                           "levels": [{"bundle": "" if ability else bundle_key(fam["id"], line, i), "value": v,
                                       "cost": line["cost"] if ability
                                       else (PASSIVE_COST if line["kind"] == "passive" else line["costs"][i - 1])}
