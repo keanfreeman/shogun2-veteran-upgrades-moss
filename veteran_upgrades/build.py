@@ -274,6 +274,23 @@ STATS, PROJECTILE, ENABLED, CARRIERS = {}, {}, set(), {}
 PROJECTILE_WEAPON = {"arrow": "bow", "grenade": "sling"}
 
 
+def building_tier(level, levels):
+    """Tier of a building level: the number in its name (SHO_aa_castle_1_fort -> 1; MoSS's own
+    'level' field is out of order, e.g. its Fort is level 4), else that field."""
+    m = re.search(r"_(\d+)_", level[4:] if level.startswith("SHO_") else level)
+    return int(m.group(1)) if m else levels.get(level, {}).get("level", 99)
+
+
+def recruit_tiers():
+    """{unit key: lowest tier of a building that recruits it}."""
+    levels = {r["level_name"]: r for r in load("building_levels_tables")}
+    tiers = {}
+    for r in load("building_units_allowed_tables"):
+        t = building_tier(r["building"], levels)
+        tiers[r["unit"]] = min(t, tiers.get(r["unit"], t))
+    return tiers
+
+
 def unit_kind(key):
     """(missile weapon, mounted) - what decides which abilities make sense for a unit."""
     s = STATS.get(key) or {}
@@ -445,15 +462,17 @@ def build_catalog(camp):
                         "units": keys, "names": shown + [n + COPY_SUFFIX for n in shown],
                         "lines": list(lines.values()), "abilities": abilities})
     cat_ids = [c[0] for c in camp["categories"]]
-    for f in catalog:   # categories outside the campaign's columns go to the last column
-        if f["category"] not in cat_ids:
-            f["category"] = cat_ids[-1]
-    order = {c: i for i, c in enumerate(cat_ids)}
-    cost = {f["id"]: units[f["units"][0] if f["units"] else ""]["create_cost"] if f["units"] else 0 for f in catalog}
     for f in catalog:
-        base = next((u for u in f["units"] if u.lower() == f["id"]), None)
-        cost[f["id"]] = units[base]["create_cost"] if base else 0
-    catalog.sort(key=lambda f: (order.get(f["category"], 99), cost[f["id"]], f["display"]))
+        # Mounted units go under Cavalry even when they borrow a foot unit's tree (Yumi Sohei Ki).
+        if "cavalry" in cat_ids and any(unit_kind(k)[1] for k in f["units"]):
+            f["category"] = "cavalry"
+        if f["category"] not in cat_ids:   # categories outside the campaign's columns go to the last column
+            f["category"] = cat_ids[-1]
+    # Within a column: easiest to get first - lowest recruitment building tier, then cost, then name.
+    order = {c: i for i, c in enumerate(cat_ids)}
+    tier = recruit_tiers()
+    catalog.sort(key=lambda f: (order.get(f["category"], 99), min(tier.get(k, 99) for k in f["units"]),
+                                min(units[k]["create_cost"] for k in f["units"]), f["display"]))
     price_stats(catalog)
     return catalog
 
