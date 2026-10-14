@@ -3,9 +3,12 @@
 ## Unreleased (in testing)
 - Every unit type can buy Melee Attack, Melee Defence, Armour and Morale, Accuracy if it shoots,
   and Scare Enemies unless it already frightens, whether or not its multiplayer tree has them.
-- Experimental, untested per unit type: Charge Bonus, Speed, Fatigue Resistance and Ammunition
-  (build with VU_EXPERIMENTAL=none to leave them out).
-- Two stats per row under each heading; percentage bonuses show as "+5%".
+  Artillery gets Armour, Morale and Accuracy only.
+- Charge Bonus, Speed, Fatigue Resistance and Ammunition were tried per unit type and did nothing
+  in game; they are off (VU_EXPERIMENTAL=all builds them for further tests).
+- The upgrade tree puts one line per row under each heading (side by side, neighbouring headings'
+  nodes overlapped); percentage bonuses show as "+5%".
+- AI clans' upgrade levels are saved in chunks, so up to 12 lines per unit type stay exact.
 - Debug builds log the unit cards' numbers (charge, ammunition, ...) when they change.
 
 ## 1.0.0 (2026-10-14)

@@ -82,10 +82,12 @@ UNIVERSAL_STATS = [
     ("accuracy_mod", "Accuracy", "skill_accuracy", None, True),
     ("ammo_mod", "Ammunition", "skill_ammo_quantity", 5.0, True),
 ]
-# Untested per unit record (CA uses them per unit class/category only; fatigue_resistance per record in
-# 3 rows). VU_EXPERIMENTAL=none (or a comma list) leaves them out if one crashes the game or does nothing.
+# Tried per unit record and showed no effect in game (2026-10-14: unit cards' charge and ammunition
+# unchanged, no visible speed or stamina change); off unless VU_EXPERIMENTAL=all or a comma list.
+# (Veterancy doesn't scale charge, ammunition or speed either: its table has melee attack/defence,
+# reload, morale, marksmanship and fatigue only.)
 EXPERIMENTAL = {"charge_bonus", "mod_land_movement_battle", "fatigue_resistance", "ammo_mod"}
-_exp = os.environ.get("VU_EXPERIMENTAL", "all")
+_exp = os.environ.get("VU_EXPERIMENTAL", "none")
 EXPERIMENTAL_ON = EXPERIMENTAL if _exp == "all" else set() if _exp == "none" else set(_exp.split(",")) & EXPERIMENTAL
 PERCENT = {"ammo_mod", "mod_land_movement_battle"}   # bonuses whose values are percentages
 # MP "enable ability" effects -> campaign unit ability to clone (gated) for the family.
@@ -566,10 +568,13 @@ def add_universal_lines(lines, keys, available):
     its own tree gives (those keep the tree's step). Accuracy and Ammunition only for units that shoot;
     Scare Enemies not for units that already frighten."""
     out = collections.OrderedDict()
+    artillery = is_artillery(keys)
     for bonus, label, icon, step, missile_only in UNIVERSAL_STATS:
         if bonus in EXPERIMENTAL and bonus not in EXPERIMENTAL_ON:
             continue
         if missile_only and not has_missiles(keys):
+            continue
+        if artillery and bonus in NOT_FOR_ARTILLERY and "stat_" + bonus not in lines:
             continue
         key = "stat_" + bonus
         if key in lines:
@@ -582,7 +587,7 @@ def add_universal_lines(lines, keys, available):
     for key, line in lines.items():
         if key not in out and line.get("kind", "stat") == "stat":
             out[key] = line
-    if "passive_scares_men" not in lines and not any(already_scares(k) for k in keys):
+    if "passive_scares_men" not in lines and not artillery and not any(already_scares(k) for k in keys):
         out["passive_scares_men"] = {"key": "passive_scares_men", "label": "Scare Enemies", "bonus": "scares_men",
                                      "advanced": True, "icon": STAT_ICON_PATH, "levels": [1.0], "kind": "passive"}
     for key, line in lines.items():
@@ -592,6 +597,12 @@ def add_universal_lines(lines, keys, available):
 
 
 SCARES = set()   # units that already frighten (CA gives some scares_men per unit record)
+# Artillery crews aren't meant to fight: no melee or charge lines (unless their own tree has them).
+NOT_FOR_ARTILLERY = {"melee_attack_mod", "melee_defence_mod", "charge_bonus"}
+
+
+def is_artillery(keys):
+    return any((STATS.get(k) or {}).get("artillery_model") or (STATS.get(k) or {}).get("siege_gun") for k in keys)
 
 
 def already_scares(key):
