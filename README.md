@@ -1,31 +1,39 @@
-# Veteran Upgrades for Total War: Shogun 2
+# Veteran Upgrades for Master of Strategy Sengoku (Total War: Shogun 2)
 
-Brings the multiplayer veteran upgrade trees into the campaign. Your clan earns points by fighting
-battles and spends them on upgrades for any unit type, using the multiplayer skill-tree screen:
-repeatable stat upgrades, passive traits and battlefield abilities. Covers Sengoku Jidai, Rise of the
-Samurai and Fall of the Samurai.
+The [Veteran Upgrades](https://github.com/keanfreeman/shogun2-veteran-upgrades) mod rebuilt for the
+**Master of Strategy Sengoku (MoSS)** overhaul: the multiplayer veteran upgrade trees in the Sengoku
+campaign, covering the units a MoSS campaign actually recruits, including MoSS's own.
 
 - **Clan points:** 1 per battle your units fight in, win or lose.
 - **Stats** (Melee Attack, Melee Defence, Armour, Morale, Accuracy) can be bought up to 10 times;
   each pick costs more, and stronger stats cost more.
-- **Abilities** (Inspire Unit, Hold Firm, Banzai, Rapid Volley, Increased Range, ...) per unit type,
-  in any combination.
-- **Retrain** existing units to give them new abilities (one army, or all armies at once).
-- **AI clans** earn points the same way and buy stat upgrades.
+- **Abilities:** one "Abilities" upgrade per unit type unlocks all of its abilities at once (Inspire
+  Unit, Hold Firm, ...). Each unit has a single "(Veteran)" version, so the recruitment list grows by
+  at most one entry per unit.
+- **Retrain** existing units into their Veteran version (one army, or all armies at once).
+- **AI clans** (MoSS's added clans too) earn points the same way and buy stat upgrades.
 
-Players: get it from the Steam Workshop (link TBD). Start a new campaign after enabling it.
+Needs MoSS's mandatory packs (Database, Files 1-4 and one of the two clan packs). Use it **instead of**
+the regular Veteran Upgrades, not together with it: both add their code to the same game file.
+Sengoku Jidai only. Start a new campaign after enabling it.
 
 ## How it works
 
 The engine can't change one unit's abilities, and copies of ability records are ignored in battle.
-So every ability combination of a unit type is its own **unit record copy** with those abilities
-attached. When you buy abilities, the mod switches your clan's recruitment to the matching copy
-(per-faction recruitment locks), and Retrain replaces existing units with it. Stat upgrades are
+So every unit gets one **unit record copy** (`<unit>_VU`, "(Veteran)") with all of its unlockable
+abilities attached. When you buy the Abilities upgrade, the mod switches your clan's recruitment to
+the copy (per-faction recruitment locks), and Retrain replaces existing units with it. Stat upgrades are
 effect bundles applied to your faction, covering the originals and all copies.
 
 The code is appended to CA's `export_advice.lua`, which every campaign script loads, and starts when
 the campaign script calls `SetCampaign`. The mod ships no `scripting.lua`, so it works alongside
-overhauls that replace it (such as Master of Strategy Sengoku).
+overhauls that replace it (such as MoSS).
+
+The data comes from the game's packs with MoSS's Database and Original Clans packs laid over them
+(`MOSS_PACKS` in `build.py`), so unit types, recruitment buildings and clan permissions are MoSS's.
+Units with the same in-game name and class (MoSS's `_ikko` variants) form one unit type; units
+without a multiplayer tree borrow the tree of a multiplayer unit of the same class; unit types that
+no clan can recruit under MoSS are left out.
 
 [`docs/ENGINE_NOTES.md`](docs/ENGINE_NOTES.md) lists what we learned about the engine, including
 the things that crash it.
@@ -45,17 +53,18 @@ Nothing from the game is included. The build reads your own copy of the game and
 
 ## Building
 
-Needs Python 3.10+, a Steam install of Shogun 2 (with Fall of the Samurai for that campaign), and
-RPFM's Shogun 2 schema.
+Needs Python 3.10+, a Steam install of Shogun 2, RPFM's Shogun 2 schema, and MoSS: subscribe to its
+mandatory Workshop items and enable them once in the CA launcher, which copies them into the game's
+`data` folder as `MoSS_Must_*.pack`.
 
 1. `python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`
 2. Get the schema: install [RPFM](https://github.com/Frodo45127/rpfm), let it download its schemas,
    then point `RPFM_SCHEMA` at `schema_sho2.ron` (or copy it to `./schemas/`).
 3. If the game isn't in a default Steam location, set `SHOGUN2_DATA` to its `data` folder.
-4. `.venv/bin/python tools/release.py` builds `veteran_upgrades/veteran_upgrades.pack`, runs the
+4. `.venv/bin/python tools/release.py` builds `veteran_upgrades/veteran_upgrades_moss.pack`, runs the
    tests and fills `dist/`. Add `--install` to copy the pack and thumbnail into the game.
 
-To use a local build, add `mod "veteran_upgrades.pack";` to `user.script.txt` (UTF-16, in
+To use a local build, add `mod "veteran_upgrades_moss.pack";` (and MoSS's packs) to `user.script.txt` (UTF-16, in
 `%APPDATA%\The Creative Assembly\Shogun2\scripts\`).
 
 ### Debug builds
@@ -67,7 +76,7 @@ The mod always writes a short `vu_log.txt` (purchases, battles, errors).
 ## Testing
 
 `tests/run_tests.py` loads the built pack's `export_advice.lua` against a mock of the campaign scripting API
-(`tests/mock_engine.lua`): the full flows on Sengoku and a smoke test on every campaign. It can't
+(`tests/mock_engine.lua`): the full flows, and a smoke test for a few clans including one of MoSS's. It can't
 catch engine crashes, so changes still need a play test, ideally with `PROTON_LOG=1` / a debugger
 for native crashes.
 

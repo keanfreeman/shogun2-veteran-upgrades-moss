@@ -137,7 +137,7 @@ CampaignUI = {
 		if c == "CHAR:army1" then
 			for _, n in ipairs(MOCK.cards.kids) do out.Units[#out.Units + 1] = { Address = n.unit_ptr } end
 		else
-			MOCK.unit_details["UNIT:far"] = { UnitRecord = { Key = "Inf_Spear_Yari_Ashigaru" }, Experience = 1 }
+			MOCK.unit_details["UNIT:far"] = { UnitRecord = { Key = "aaas_melee_yari" }, Experience = 1 }
 			out.Units[1] = { Address = "UNIT:far" }
 		end
 		return out

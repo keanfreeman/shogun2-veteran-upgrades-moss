@@ -7,7 +7,7 @@
 --   * Open:   the "Veterans" button under the advisor button lists unit types (full colour =
 --             upgrades affordable); pick one to open its tree.
 --   * Buy:    click upgrade nodes (staged); OK applies, Cancel discards, Reset refunds everything.
---   * Abilities: each combination is a unit copy; the clan recruits the copy matching its unlocks,
+--   * Abilities: one copy per unit has all of them (MoSS edition); the clan recruits it once unlocked,
 --             and Retrain (in the tree, with an army selected) swaps that army's units for it.
 -- VU_FAMILIES and VU_START_POINTS are generated above this file by build.py.
 -- Log: vu_log.txt in the game folder.

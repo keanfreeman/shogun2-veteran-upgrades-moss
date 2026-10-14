@@ -121,14 +121,30 @@ def load_file(pack, path):
     ver, rows = decode(data, table)
     return ver, header_of(data), rows
 
-def load(table):
-    """All rows of a table across the game's data packs."""
-    rows = []
+# Mod packs (file names in the game's data folder) laid over the game's packs, in load order: a later
+# pack's file replaces any earlier file with the same path, as the game does for the winning pack.
+OVERLAY = []
+
+
+def files(prefix):
+    """[(pack path, file name)] of every file under prefix (e.g. 'db\\units_tables\\'), after the overlay."""
+    out = []
     for p in PACKS:
         path = os.path.join(GAME_DATA, p)
-        for name, _, _ in read_index(path):
-            if name.lower().startswith(f"db\\{table}\\"):
-                rows += decode(extract(path, name), table)[1]
+        out += [(path, n) for n, _, _ in read_index(path) if n.lower().startswith(prefix.lower())]
+    for p in OVERLAY:
+        path = os.path.join(GAME_DATA, p)
+        for n, _, _ in read_index(path):
+            if n.lower().startswith(prefix.lower()):
+                out = [f for f in out if f[1].lower() != n.lower()] + [(path, n)]
+    return out
+
+
+def load(table):
+    """All rows of a table across the game's data packs (and the overlay)."""
+    rows = []
+    for path, name in files(f"db\\{table}\\"):
+        rows += decode(extract(path, name), table)[1]
     return rows
 
 if __name__ == "__main__":

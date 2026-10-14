@@ -1,6 +1,8 @@
-"""Build veteran_upgrades.pack.
+"""Build veteran_upgrades_moss.pack: Veteran Upgrades for Master of Strategy Sengoku (MoSS).
 
-Covers the three campaigns (CAMPAIGNS): Sengoku Jidai, Rise of the Samurai and Fall of the Samurai.
+Sengoku Jidai only, generated from the game's data with MoSS's packs laid over it (MOSS_PACKS), so it
+covers the units a MoSS campaign actually recruits, including MoSS's own. Each unit gets ONE copy that
+has all of its unlockable abilities, bought as a single "Abilities" upgrade (no copy per combination).
 
 Clan-wide upgrades per unit family, modelled on the multiplayer veteran skill trees:
   * upgrade lines + per-level values come from the MP avatar_skill tables
@@ -16,8 +18,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 from tools_packread import extract
 from tools_packwrite import write_pack
+import tools_db
+from tools_packread import read_index
 from tools_db import load, load_file, encode, GAME_DATA
 from tools_loc import read_loc, write_loc
+
+# MoSS packs the data is read from, in the game's load order: a later pack's file replaces an earlier
+# one with the same path. The Database pack must come after the clan pack: both have a
+# db\\building_units_allowed_tables\\building_units_allowed, and the clan pack's lists only Uesugi temple
+# units (MoSS campaigns recruit from the Database pack's, so that one wins in game).
+MOSS_PACKS = ["MoSS_Must_clans_Original_PICK_ONLY_ONE.pack", "MoSS_Must_database.pack"]
+# Packs searched for unit portraits (MoSS's unit icons are in its "files" packs).
+UI_PACKS = ["data.pack", "data_fots.pack"] + MOSS_PACKS + [f"MoSS_Must_files_{i}.pack" for i in range(1, 5)]
+for _p in UI_PACKS:
+    if not os.path.exists(os.path.join(GAME_DATA, _p)):
+        raise SystemExit(f"{_p} not found in {GAME_DATA}: subscribe to MoSS's mandatory items and let the "
+                         "launcher copy them into the data folder (see README)")
+tools_db.OVERLAY[:] = MOSS_PACKS
+PACK_NAME = "veteran_upgrades_moss.pack"
 
 DATA = os.path.join(GAME_DATA, "data.pack")
 LOCAL = os.path.join(GAME_DATA, "local_en.pack")
@@ -36,19 +54,6 @@ CAMPAIGNS = [
                     ("bow", "Bow", "ranged", "Bow infantry"), ("gun", "Firearms", "ranged", "Matchlock and other firearm infantry"),
                     ("cavalry", "Cavalry", "physical", "Cavalry"),
                     ("siege_stealth", "Siege & Special", "leadership", "Artillery, siege weapons and special units")]},
-    {"id": "gempei", "script": "campaigns\\jap_gempei\\scripting.lua", "pack": "data.pack",
-     "products": {"gempei"}, "unit_prefixes": ("Genpei_",), "clan_prefix": "gem_",
-     "categories": [("spear", "Spear", "melee", "Spear and polearm infantry"), ("sword", "Sword", "melee", "Sword and club infantry"),
-                    ("bow", "Bow", "ranged", "Bow infantry"), ("cavalry", "Cavalry", "physical", "Cavalry"),
-                    ("siege_stealth", "Special", "leadership", "Special units")]},
-    {"id": "boshin", "script": "campaigns\\jap_boshin\\scripting.lua", "pack": "data_fots.pack",
-     "products": {"boshin"}, "unit_prefixes": ("Boshin_",), "clan_prefix": "bos_",
-     "categories": [("line_inf_boshin", "Line Infantry", "ranged", "Line infantry"),
-                    ("elite_inf_boshin", "Elite Infantry", "ranged", "Elite and marine infantry"),
-                    ("missile_inf_boshin", "Light & Missile", "ranged", "Light infantry, riflemen and traditional missile infantry"),
-                    ("melee_inf_boshin", "Melee", "melee", "Traditional melee infantry"),
-                    ("cavalry_boshin", "Cavalry", "physical", "Cavalry"),
-                    ("artillery_boshin", "Artillery", "leadership", "Artillery and special units")]},
 ]
 SENGOKU_FOREIGN = ("Genpei_", "Boshin_")   # other campaigns' unit prefixes
 
@@ -103,18 +108,18 @@ STAT_ICON = {"reload": "skill_reload", "accuracy_mod": "skill_accuracy", "melee_
              "armour_mod": "skill_armour", "morale": "skill_morale"}
 ICON = "data/ui/campaign ui/pips/effect_admiral.tga"
 START_POINTS = 0  # points come from battles (vu.lua: VU_OnUnitCompletedBattle)
-VERSION = "1.1.0"
+VERSION = "0.1.0"
 DEBUG = os.environ.get("VU_DEBUG") == "1"   # debug build: logs the panel's UI tree + tooltips (tools/vu_ui_audit.py)
 
 # Ability unlocks are unit-record COPIES: abilities attached through unit_to_unit_abilities apply
 # per unit record, and cloned ability keys are ignored by the battle engine (v0.7b test C).
-# One copy per (unit key, non-empty ability combination): <key>_VU<mask>, where bit i of mask
-# is fam["abilities"][i].
+# One copy per unit key, <key>_VU, with ALL of the family's unlockable abilities (fam["abilities"]):
+# the Lua side sees a single ability line, "ab_all", so mask 1 = that copy.
 RANGE_ABILITY = "range_effect"          # "Increased Range": +25 range for 50 s; range_mod has no effect
 RANGE_EFFECTS = {"mod_missile_range"}   # MP skill effects that become the range unlock
-# Names: a copy lists its abilities ("Yari Ashigaru (Inspire Unit, Hold Firm)"); the plain unit of a
-# family with copies becomes "Yari Ashigaru (no abilities)".
-NO_ABILITIES_SUFFIX = " (no abilities)"
+# Names: the copy is "<unit name> (Veteran)"; the plain unit keeps MoSS's name.
+COPY_SUFFIX = " (Veteran)"
+ALL_ABILITIES = "ab_all"   # the single ability line
 COPY_REF_FIELD = {  # tables copied row-for-row from the base unit -> field holding the unit key
     "unit_stats_land_tables": "key", "units_to_exclusive_faction_permissions_tables": "key",
     "units_to_groupings_military_permissions_tables": "unit", "cdir_unit_qualities_tables": "unit_key",
@@ -126,16 +131,32 @@ COPY_REF_FIELD = {  # tables copied row-for-row from the base unit -> field hold
 COPY_INDEX_BASE = 31000
 
 
-def copy_key(unit, mask):
-    return f"{unit}_VU{mask}"
+def copy_key(unit):
+    return f"{unit}_VU"
 
 
 def add_copies(catalog):
-    """fam["copies"] = [{"base": unit, "keys": [copy for mask 1..2^n-1]}] for every family unit."""
+    """fam["copies"] = [{"base": unit, "keys": [its one copy]}] for every unit of a family with abilities."""
     for fam in catalog:
-        n = len(fam["abilities"])
-        fam["copies"] = [{"base": u, "keys": [copy_key(u, m) for m in range(1, 2 ** n)]} for u in fam["units"]] if n else []
+        fam["copies"] = [{"base": u, "keys": [copy_key(u)]} for u in fam["units"]] if fam["abilities"] else []
         fam["copy_keys"] = [k for c in fam["copies"] for k in c["keys"]]
+
+
+_UNIT_NAMES = {}
+
+
+def unit_names():
+    """{unit key: on-screen name} from the English loc files, MoSS's (any file name) over the game's."""
+    if _UNIT_NAMES:
+        return _UNIT_NAMES
+    names = _UNIT_NAMES
+    for path in [os.path.join(GAME_DATA, "local_en.pack")] + [os.path.join(GAME_DATA, p) for p in MOSS_PACKS]:
+        for n, _, _ in read_index(path):
+            if n.lower().startswith("text\\db\\") and n.lower().endswith(".loc"):
+                for k, v, _ in read_loc(extract(path, n))[1]:
+                    if k.startswith("units_on_screen_name_"):
+                        names[k[len("units_on_screen_name_"):]] = v
+    return names
 
 
 def copy_tables(catalog):
@@ -170,20 +191,15 @@ def copy_tables(catalog):
     for r in bua:
         bua_of[r["unit"]].append(r)
     ency_root = os.path.join(GAME_DATA, "encyclopedia", "units")
-    _, unit_loc = read_loc(extract(LOCAL, "text\\db\\units.loc"))
-    base_names = {k[len("units_on_screen_name_"):]: v for k, v, _ in unit_loc if k.startswith("units_on_screen_name_")}
+    base_names = unit_names()
     loc, pages = [], []
-    for fam in catalog:
-        for c in fam["copies"]:
-            loc.append(("units_on_screen_name_" + c["base"], base_names.get(c["base"], by_key[c["base"]]["on_screen_name"]) + NO_ABILITIES_SUFFIX))
     for fam in catalog:
         for c in fam["copies"]:
             base = c["base"]
             html_path = os.path.join(ency_root, base.lower() + ".html")
             html = open(html_path, "rb").read() if os.path.exists(html_path) else None
-            for mask, key in enumerate(c["keys"], 1):
-                labels = [ABILITIES[ab]["bullet_text"] for i, ab in enumerate(fam["abilities"]) if mask & (1 << i)]
-                name = f"{base_names.get(base, by_key[base]['on_screen_name'])} ({', '.join(labels)})"
+            for key in c["keys"]:
+                name = base_names.get(base, by_key[base]["on_screen_name"]) + COPY_SUFFIX
                 row = dict(by_key[base])
                 row.update(key=key, on_screen_name=name, unique_index=next(free_indices))
                 out["units_tables"].append(row)
@@ -192,14 +208,13 @@ def copy_tables(catalog):
                     for r in loaded[t][base]:
                         cr = dict(r); cr[field] = key; out[t].append(cr)
                 for r in uniforms[base]:
-                    cr = dict(r); cr["Unit"] = key; cr["Uniform_Name"] = f"VU{mask}_" + r["Uniform_Name"]
+                    cr = dict(r); cr["Unit"] = key; cr["Uniform_Name"] = "VU_" + r["Uniform_Name"]
                     out["uniforms_tables"].append(cr)
                 for r in bua_of[base]:
                     cr = dict(r); cr["unit"] = key; cr["key"] = bua_key_after(r["key"])
                     out["building_units_allowed_tables"].append(cr)
-                for i, ab in enumerate(fam["abilities"]):
-                    if mask & (1 << i):
-                        out["unit_to_unit_abilities_junctions_tables"].append({"unit_name": key, "ability": ab})
+                for ab in fam["abilities"]:
+                    out["unit_to_unit_abilities_junctions_tables"].append({"unit_name": key, "ability": ab})
                 if html:
                     pages.append((f"encyclopedia\\units\\{key.lower()}.html", html))
     return out, loc, pages
@@ -224,9 +239,8 @@ def icon_path(mp_icon, bonus, available):
 
 
 def portraits():
-    from tools_packread import read_index
     out = []
-    for p in ("data.pack", "data_fots.pack"):
+    for p in UI_PACKS:
         for n, _, _ in read_index(os.path.join(GAME_DATA, p)):
             nl = n.lower()
             if nl.startswith("ui\\units\\icons_square\\") and nl.endswith(".tga"):
@@ -242,8 +256,10 @@ def portrait_for(fam_id, names):
 
 def family_portrait(base_key, square):
     """Square portrait: try the unit key's trailing tokens, longest first (Inf_Spear_Yari_Ashigaru -> *_yari_ashigaru)."""
+    if base_key.lower() in square:   # MoSS names its icons exactly after the unit key
+        return f"data/ui/units/icons_square/{base_key.lower()}.tga"
     tokens = base_key.lower().split("_")
-    for k in range(len(tokens) - 1, 0, -1):
+    for k in range(len(tokens) - 1, 1, -1):   # at least two words: "_hero" alone matched other heroes
         suffix = "_" + "_".join(tokens[-k:])
         hits = sorted((n for n in square if n.endswith(suffix)), key=len)
         if hits:
@@ -284,6 +300,8 @@ def build_catalog(camp):
 
     avatars = sorted(load("avatar_units_tables"), key=lambda r: r["unit_ui_category_order"])
     sources = []   # (base unit, its keys, MP unit whose skills it uses, MP avatar row)
+    names = unit_names()
+    buildable = {r["unit"] for r in load("building_units_allowed_tables")}
     for av in avatars:
         mp = av["key"]
         if av["product"] not in camp["products"] or not mp.endswith("_MP") or SKIP.search(mp):
@@ -291,28 +309,34 @@ def build_catalog(camp):
         base = mp[:-3]
         if base not in units or not campaign_unit(camp, base):
             continue
-        keys = sorted(k for k in units if (k == base or k.startswith(base + "_")) and not EXCLUDE.search(k))
-        sources.append((base, keys, mp, av))
+        keys = sorted(k for k in units if (k == base or k.startswith(base + "_")) and not EXCLUDE.search(k)
+                      and k in buildable)   # MoSS drops most vanilla units from recruitment
+        if keys:
+            sources.append((base, keys, mp, av))
     # Recruitable land units of this campaign without an MP tree: borrow one from an MP unit of the
     # same class (preferring this campaign's era).
     covered = {k for _, keys, _, _ in sources for k in keys}
     land = {r["key"] for r in load("unit_stats_land_tables")}
-    buildable = {r["unit"] for r in load("building_units_allowed_tables")}
     by_class = collections.defaultdict(list)
     for av in avatars:
         b = av["key"][:-3]
         if av["key"].endswith("_MP") and b in units and not SKIP.search(av["key"]) and unit_skills[av["key"]]:
             by_class[units[b]["class"]].append((av["product"] not in camp["products"], av))
+    # Units with the same in-game name and class form one family (MoSS's <unit>_ikko variants).
+    groups = collections.defaultdict(list)
     for k in sorted(units):
         if (k in covered or k not in land or k not in buildable or not campaign_unit(camp, k)
                 or EXCLUDE.search(k) or SKIP.search(k) or "Citizenry" in k):
             continue
-        cands = sorted(by_class.get(units[k]["class"], []), key=lambda x: (x[0], x[1]["unique_index"]))
+        groups[(names.get(k, units[k]["on_screen_name"]), units[k]["class"])].append(k)
+    for (name, cls), keys in sorted(groups.items(), key=lambda g: sorted(g[1], key=len)[0]):
+        k = sorted(keys, key=len)[0]
+        cands = sorted(by_class.get(cls, []), key=lambda x: (x[0], x[1]["unique_index"]))
         if cands:
-            sources.append((k, [k], cands[0][1]["key"], cands[0][1]))
-            print(f"  {camp['id']}: {k} borrows the MP tree of {cands[0][1]['key']}")
+            sources.append((k, sorted(keys), cands[0][1]["key"], cands[0][1]))
+            print(f"  {camp['id']}: {', '.join(keys)} borrow the MP tree of {cands[0][1]['key']}")
         else:
-            print(f"  {camp['id']}: {k} has no MP tree of its class - not covered")
+            print(f"  {camp['id']}: {', '.join(keys)} - no MP tree of its class, not covered")
 
     catalog = []
     for base, keys, mp, av in sources:
@@ -341,11 +365,14 @@ def build_catalog(camp):
                 ab = RANGE_ABILITY if e["effect"] in RANGE_EFFECTS else ABILITY_MAP.get(e["effect"])
                 if ab and ab in ABILITIES and ab not in native and ab not in abilities:
                     abilities.append(ab)
-        for ab in abilities:
-            lines["ab_" + ab] = {"key": "ab_" + ab, "label": ABILITIES[ab]["bullet_text"], "bonus": "ability",
-                "ability": ab, "advanced": True, "icon": ability_icon(ab), "levels": [1.0], "kind": "ability",
-                "desc": ABILITIES[ab]["info_card_tooltip_text"],
-                "gated": bool(ABILITIES[ab]["requires_effect_enabling"])}
+        if abilities:
+            lines[ALL_ABILITIES] = {"key": ALL_ABILITIES, "label": "Abilities", "bonus": "ability",
+                "ability": abilities[0], "advanced": True, "icon": ability_icon(abilities[0]), "levels": [1.0],
+                "kind": "ability", "cost": sum(ABILITY_COSTS.get(ab, ABILITY_COST) for ab in abilities),
+                "desc": "Unlocks all of: " + ", ".join(ABILITIES[ab]["bullet_text"] for ab in abilities) + ".\n"
+                        + "\n".join(f"{ABILITIES[ab]['bullet_text']}: {ABILITIES[ab]['info_card_tooltip_text']}"
+                                    for ab in abilities),
+                "gated": any(ABILITIES[ab]["requires_effect_enabling"] for ab in abilities)}
         if not lines:
             continue
         lines = merge_stat_lines(lines)
@@ -354,9 +381,10 @@ def build_catalog(camp):
             line.setdefault("kind", kind)
             line["column"] = ABILITY_COLUMN.get(line.get("ability"), "melee") if kind == "ability" else COLUMN.get(line["bonus"], "melee")
             line["row"] = 2 if kind in ("ability", "passive") else 0
-        catalog.append({"id": base.lower(), "display": units[base]["on_screen_name"],
+        shown = sorted({names.get(k, units[k]["on_screen_name"]) for k in keys})
+        catalog.append({"id": base.lower(), "display": names.get(base, units[base]["on_screen_name"]),
                         "portrait": family_portrait(base, square), "category": av["unit_ui_category"],
-                        "units": keys, "names": sorted({units[k]["on_screen_name"] for k in keys}),
+                        "units": keys, "names": shown + [n + COPY_SUFFIX for n in shown],
                         "lines": list(lines.values()), "abilities": abilities})
     cat_ids = [c[0] for c in camp["categories"]]
     for f in catalog:   # categories outside the campaign's columns go to the last column
@@ -488,7 +516,7 @@ def loc_file(vanilla_path, name, extra):
 def lua_value(v):
     if isinstance(v, bool): return "true" if v else "false"
     if isinstance(v, (int, float)): return repr(v)
-    if isinstance(v, str): return '"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(v, str): return '"' + v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "") + '"'
     if isinstance(v, list): return "{ " + ", ".join(lua_value(x) for x in v) + " }"
     if isinstance(v, dict): return "{ " + ", ".join(f"{k} = {lua_value(x)}" for k, x in v.items()) + " }"
     raise TypeError(v)
@@ -588,12 +616,12 @@ def lua_data(catalog, camp):
                           "kind": line["kind"], "column": line["column"], "row": line["row"],
                           "desc": line.get("desc", ""), "gated": line.get("gated", False),
                           "levels": [{"bundle": "" if ability else bundle_key(fam["id"], line, i), "value": v,
-                                      "cost": ABILITY_COSTS.get(line.get("ability"), ABILITY_COST) if ability
+                                      "cost": line["cost"] if ability
                                       else (PASSIVE_COST if line["kind"] == "passive" else line["costs"][i - 1])}
                                      for i, v in enumerate(line["levels"], 1)]})
         fams.append({"id": fam["id"], "name": fam["display"], "portrait": fam["portrait"] or STAT_ICON_PATH,
                      "category": fam["category"], "names": fam["names"], "units": fam["units"], "lines": lines,
-                     "abilities": ["ab_" + ab for ab in fam["abilities"]], "copies": fam["copies"],
+                     "abilities": [ALL_ABILITIES] if fam["abilities"] else [], "copies": fam["copies"],
                      "factions": fam["factions"]})
     return ("-- generated by veteran_upgrades/build.py\n"
             f"local VU_START_POINTS = {START_POINTS}\n"
@@ -613,6 +641,9 @@ if __name__ == "__main__":
         catalog = build_catalog(camp)
         add_copies(catalog)
         family_factions(catalog, camp)
+        for fam in [f for f in catalog if not f["factions"]]:
+            print(f"   (dropped {fam['display']} - {', '.join(fam['units'])}: no clan can recruit it under MoSS)")
+        catalog[:] = [f for f in catalog if f["factions"]]
         for fam in catalog:
             print(f"   {fam['display']:<34} {fam['category']:<18} {len(fam['units'])} keys, {len(fam['lines'])} lines, "
                   f"{len(fam['copy_keys'])} copies, {len(fam['factions'])} clans, portrait={'yes' if fam['portrait'] else 'NO'}")
@@ -648,6 +679,6 @@ if __name__ == "__main__":
     script = vanilla + b"\r\n" + hook.replace("\r\n", "\n").replace("\n", "\r\n").encode("utf-8")
     check_lua(script, ADVICE)
     files.append((ADVICE, script))
-    out = os.path.join(HERE, "veteran_upgrades.pack")
+    out = os.path.join(HERE, PACK_NAME)
     write_pack(out, files, pack_type="mod")
     print(f"{len(b['effects'])} effects, {len(b['bundles'])} bundles, {len(ct['units_tables'])} copies, {len(files)} files -> {out}")

@@ -2,7 +2,7 @@
 
 Build first (veteran_upgrades/build.py writes veteran_upgrades.pack), then:
     .venv/bin/python tests/run_tests.py
-Runs tests/scenarios.lua (full flows) on Sengoku and tests/smoke.lua on every campaign.
+Runs tests/scenarios.lua (full flows) and tests/smoke.lua for a few clans, including a MoSS clan.
 Needs lupa (pip install lupa). Exit code 1 if any check fails.
 """
 import os, sys, tempfile
@@ -13,14 +13,14 @@ CAMPAIGN_KEYS = {"sengoku": "jap_shogun", "gempei": "jap_gempei", "boshin": "jap
 RUNS = [  # (campaign, scenario, player clan)
     ("sengoku", "scenarios.lua", "shimazu"),
     ("sengoku", "smoke.lua", "shimazu"),
-    ("gempei", "smoke.lua", "gem_minamoto_kamakura"),
-    ("boshin", "smoke.lua", "bos_satsuma"),
+    ("sengoku", "smoke.lua", "ikko_ikki"),
+    ("sengoku", "smoke.lua", "akamatsu"),   # one of MoSS's added clans
 ]
 
 
 sys.path.insert(0, ROOT)
 from tools_packread import extract
-ADVICE_SRC = extract(os.path.join(ROOT, "veteran_upgrades", "veteran_upgrades.pack"), "export_advice.lua").decode("utf-8")
+ADVICE_SRC = extract(os.path.join(ROOT, "veteran_upgrades", "veteran_upgrades_moss.pack"), "export_advice.lua").decode("utf-8")
 
 
 def run(campaign, scenario, player):

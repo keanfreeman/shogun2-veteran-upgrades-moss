@@ -1,11 +1,11 @@
-"""Make a Veteran Upgrades release: build, test, and assemble dist/ for the Steam Workshop.
+"""Make a Veteran Upgrades for MoSS release: build, test, and assemble dist/ for the Steam Workshop.
 
     .venv/bin/python tools/release.py            # build + test + dist/
     .venv/bin/python tools/release.py --install  # ...and copy pack + thumbnail into the game's data folder
 
 dist/ gets:
-  veteran_upgrades.pack            the mod (release build, no debug logging)
-  veteran_upgrades.jpg / .png      Workshop thumbnail (made from the game's own unit art); the current
+  veteran_upgrades_moss.pack       the mod (release build, no debug logging)
+  veteran_upgrades_moss.jpg / .png Workshop thumbnail (made from the game's own unit art); the current
                                    CA launcher shows <pack>.png, the 2012 Mod Manager used <pack>.jpg
   workshop_description.bbcode      text for the Workshop page (docs/workshop_description.bbcode)
 The Assembly Kit's Mod Manager uploads a pack from the game's data folder and needs a .jpg with the
@@ -19,11 +19,13 @@ from tools_db import GAME_DATA            # noqa: E402
 from tools_packread import extract        # noqa: E402
 
 DIST = os.path.join(ROOT, "dist")
-PACK = os.path.join(ROOT, "veteran_upgrades", "veteran_upgrades.pack")
+NAME = "veteran_upgrades_moss"
+PACK = os.path.join(ROOT, "veteran_upgrades", NAME + ".pack")
 ART = ["ashigaru_inf_yari_ashigaru", "samurai_inf_katana_samurai", "ashigaru_inf_bow_ashigaru",
        "ashigaru_inf_matchlock_ashigaru", "samurai_cav_yari_cavalry", "samurai_inf_nodachi_samurai"]
 FONTS = ["/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf", "C:\\Windows\\Fonts\\georgiab.ttf",
-         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"]
+         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+         "/usr/share/fonts/google-noto/NotoSerif-Bold.ttf", "/usr/share/fonts/liberation-serif-fonts/LiberationSerif-Bold.ttf"]
 
 
 def run(*cmd):
@@ -51,7 +53,7 @@ def thumbnail(path, size=512):
     small = ImageFont.truetype(font, 22) if font else ImageFont.load_default()
     for text, f, y, colour in (("VETERAN", big, 260, (232, 196, 120)), ("UPGRADES", big, 322, (232, 196, 120)),
                                ("Multiplayer-style unit upgrades", small, 410, (220, 210, 200)),
-                               ("for all three Shogun 2 campaigns", small, 440, (220, 210, 200))):
+                               ("for Master of Strategy Sengoku", small, 440, (220, 210, 200))):
         tw = draw.textlength(text, font=f)
         draw.text(((size - tw) / 2, y), text, font=f, fill=colour)
     draw.rectangle([6, 6, size - 7, size - 7], outline=(150, 110, 60), width=3)
@@ -63,14 +65,14 @@ def main():
     run(sys.executable, "veteran_upgrades/build.py")
     run(sys.executable, "tests/run_tests.py")
     os.makedirs(DIST, exist_ok=True)
-    shutil.copy(PACK, os.path.join(DIST, "veteran_upgrades.pack"))
-    thumbnail(os.path.join(DIST, "veteran_upgrades.jpg"))
+    shutil.copy(PACK, os.path.join(DIST, NAME + ".pack"))
+    thumbnail(os.path.join(DIST, NAME + ".jpg"))
     from PIL import Image
-    Image.open(os.path.join(DIST, "veteran_upgrades.jpg")).save(os.path.join(DIST, "veteran_upgrades.png"))
+    Image.open(os.path.join(DIST, NAME + ".jpg")).save(os.path.join(DIST, NAME + ".png"))
     shutil.copy(os.path.join(ROOT, "docs", "workshop_description.bbcode"), DIST)
     print("dist/:", ", ".join(sorted(os.listdir(DIST))))
     if install:
-        for name in ("veteran_upgrades.pack", "veteran_upgrades.jpg", "veteran_upgrades.png"):
+        for name in (NAME + ".pack", NAME + ".jpg", NAME + ".png"):
             shutil.copy(os.path.join(DIST, name), os.path.join(GAME_DATA, name))
         print(f"installed pack + thumbnail into {GAME_DATA}")
     return 0
