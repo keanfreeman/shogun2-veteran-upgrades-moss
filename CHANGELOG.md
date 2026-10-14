@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased (in testing)
+- Every unit type can buy Melee Attack, Melee Defence, Armour and Morale, Accuracy if it shoots,
+  and Scare Enemies unless it already frightens, whether or not its multiplayer tree has them.
+- Experimental, untested per unit type: Charge Bonus, Speed, Fatigue Resistance and Ammunition
+  (build with VU_EXPERIMENTAL=none to leave them out).
+- Two stats per row under each heading; percentage bonuses show as "+5%".
+- Debug builds log the unit cards' numbers (charge, ammunition, ...) when they change.
+
 ## 1.0.0 (2026-10-14)
 First release for Master of Strategy Sengoku, based on Veteran Upgrades 1.1.0.
 - Unit types, recruitment and clan permissions generated from MoSS's data (Original Clans); MoSS's own

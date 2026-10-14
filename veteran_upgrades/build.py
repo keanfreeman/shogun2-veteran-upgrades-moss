@@ -67,6 +67,28 @@ BONUS = {
     # (No reload: "reload" per unit record is ignored - the card stayed at the base value after +60%,
     #  v0.19; the game only honours it at unit_class scope.)
 }
+# Upgrades EVERY unit type gets, whether or not its multiplayer tree has them:
+#   (bonus_value_id, label, icon, step per level, missile units only)
+# A unit whose tree has the stat keeps the tree's step; step None = the median step of the units whose
+# trees do have it.
+UNIVERSAL_STATS = [
+    ("melee_attack_mod", "Melee Attack", "skill_melee_attack", None, False),
+    ("melee_defence_mod", "Melee Defence", "skill_melee_defence", None, False),
+    ("charge_bonus", "Charge Bonus", "skill_charge", 1.0, False),
+    ("armour_mod", "Armour", "skill_armour", None, False),
+    ("mod_land_movement_battle", "Speed", "skill_speed", 1.0, False),
+    ("fatigue_resistance", "Fatigue Resistance", "skill_stamina", 2.0, False),
+    ("morale", "Morale", "skill_morale", None, False),
+    ("accuracy_mod", "Accuracy", "skill_accuracy", None, True),
+    ("ammo_mod", "Ammunition", "skill_ammo_quantity", 5.0, True),
+]
+# Untested per unit record (CA uses them per unit class/category only; fatigue_resistance per record in
+# 3 rows). VU_EXPERIMENTAL=none (or a comma list) leaves them out if one crashes the game or does nothing.
+EXPERIMENTAL = {"charge_bonus", "mod_land_movement_battle", "fatigue_resistance", "ammo_mod"}
+_exp = os.environ.get("VU_EXPERIMENTAL", "all")
+EXPERIMENTAL_ON = EXPERIMENTAL if _exp == "all" else set() if _exp == "none" else set(_exp.split(",")) & EXPERIMENTAL
+PERCENT = {"ammo_mod", "mod_land_movement_battle"}   # bonuses whose values are percentages
+STATS_PER_ROW = 2   # stats side by side under a heading; more go on the next row
 # MP "enable ability" effects -> campaign unit ability to clone (gated) for the family.
 ABILITY_MAP = {
     "enable_ability_banzai": "banzai", "enable_ability_inspire": "inspire_unit", "enable_ability_rally": "rally",
@@ -82,7 +104,9 @@ ABILITY_MAP = {
 PASSIVE_MAP = {"enable_ability_scare_enemies": ("scares_men", "Scare Enemies", 1.0)}
 # Panel column (popup heading container) per bonus / ability.
 COLUMN = {"morale": "leadership", "accuracy_mod": "ranged", "reload": "ranged", "armour_mod": "physical",
-          "melee_attack_mod": "melee", "melee_defence_mod": "melee", "scares_men": "leadership"}
+          "melee_attack_mod": "melee", "melee_defence_mod": "melee", "scares_men": "leadership",
+          "charge_bonus": "melee", "mod_land_movement_battle": "physical", "fatigue_resistance": "physical",
+          "ammo_mod": "ranged"}
 ABILITY_COLUMN = {"rally": "leadership", "inspire_unit": "leadership", "warcry": "leadership", "stand_firm": "leadership",
                   "we_stand_and_fight": "leadership", "flaming_arrows_ability": "ranged", "whistling_arrows_ability": "ranged",
                   "rapid_volley": "ranged", "kneel_fire_ability": "ranged", "suppression_fire": "ranged",
@@ -97,7 +121,10 @@ ABILITY_COSTS = {"range_effect": 6, "banzai": 6, "rapid_volley": 6, "inspire_uni
 PRICE_K = 16
 STAT_FIELD = {"melee_attack_mod": "melee_attack", "melee_defence_mod": "melee_defence", "morale": "morale",
               "accuracy_mod": "core_marksmanship", "armour_mod": "armour"}
-PERCENT_SPREAD = {"reload": 100.0}   # percent bonuses: share of 100%
+# Bonuses without a unit stat to compare with: a pick's share of this spread (percent bonuses: of 100%).
+# (Charge: a fixed 20 - cavalry make the charge spread across units so wide that +1 would cost 1 point.)
+PERCENT_SPREAD = {"reload": 100.0, "ammo_mod": 100.0, "mod_land_movement_battle": 50.0, "fatigue_resistance": 50.0,
+                  "charge_bonus": 20.0}
 PASSIVE_COST = 4   # passive unlocks such as Scare Enemies
 STAT_MAX_LEVEL = 10   # each stat line can be bought this many times...
 STAT_MAX_FACTOR = 2   # ...and buying it that often gives about twice the multiplayer maximum
@@ -105,7 +132,7 @@ STAT_MAX_FACTOR = 2   # ...and buying it that often gives about twice the multip
 ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
 # Fallback icon per bonus when the MP skill's own icon file doesn't exist.
 STAT_ICON = {"reload": "skill_reload", "accuracy_mod": "skill_accuracy", "melee_attack_mod": "skill_melee_attack", "melee_defence_mod": "skill_melee_defence",
-             "armour_mod": "skill_armour", "morale": "skill_morale"}
+             "armour_mod": "skill_armour", "morale": "skill_morale", **{b: icon for b, _, icon, _, _ in UNIVERSAL_STATS}}
 ICON = "data/ui/campaign ui/pips/effect_admiral.tga"
 START_POINTS = 0  # points come from battles (vu.lua: VU_OnUnitCompletedBattle)
 VERSION = "1.0.0"
@@ -373,6 +400,8 @@ def build_catalog(camp):
     STATS = {r["key"]: r for r in load("unit_stats_land_tables")}
     PROJECTILE = {r["key"]: r.get("activated_projectile") for r in load("unit_special_abilities_tables")}
     ENABLED = enabled_abilities()
+    SCARES.clear(); SCARES.update(r["unit_record_key"] for r in load("effect_bonus_value_unit_record_junctions_tables")
+                                  if r["bonus_value_id"] == "scares_men")
     RESEARCH.clear(); RESEARCH.update(research_for())
     ICON_FILES = {n.lower().split("\\")[-1] for n, _, _ in read_index(DATA) if n.lower().startswith("ui\\battle ui\\button icons\\")}
     available = icon_files()
@@ -475,14 +504,19 @@ def build_catalog(camp):
                 # e.g. "Flammable Arrow (for Flaming Arrows)" - the tooltip names the research each gated ability needs
                 "research": ", ".join(f"{' or '.join(RESEARCH[ab])} (for {ABILITIES[ab]['bullet_text']})" for ab in abilities
                                       if ABILITIES[ab]["requires_effect_enabling"] and ab in RESEARCH)}
+        lines = add_universal_lines(merge_stat_lines(lines), keys, available)
         if not lines:
             continue
-        lines = merge_stat_lines(lines)
+        per_column = collections.Counter()
         for line in lines.values():
             kind = line.get("kind", "stat")
             line.setdefault("kind", kind)
             line["column"] = ABILITY_COLUMN.get(line.get("ability"), "melee") if kind == "ability" else COLUMN.get(line["bonus"], "melee")
-            line["row"] = 2 if kind in ("ability", "passive") else 0
+            if kind in ("ability", "passive"):
+                line["row"] = 2
+            else:   # STATS_PER_ROW side by side per heading, then the next row
+                line["row"] = per_column[line["column"]] // STATS_PER_ROW
+                per_column[line["column"]] += 1
         shown = sorted({names.get(k, units[k]["on_screen_name"]) for k in keys})
         catalog.append({"id": base.lower(), "display": names.get(base, units[base]["on_screen_name"]),
                         "portrait": family_portrait(base, square), "category": av["unit_ui_category"],
@@ -500,6 +534,7 @@ def build_catalog(camp):
     tier = recruit_tiers()
     catalog.sort(key=lambda f: (order.get(f["category"], 99), min(tier.get(k, 99) for k in f["units"]),
                                 min(units[k]["create_cost"] for k in f["units"]), f["display"]))
+    fill_median_steps(catalog)
     price_stats(catalog)
     return catalog
 
@@ -526,6 +561,58 @@ def price_stats(catalog):
             spread = PERCENT_SPREAD.get(line["bonus"]) or (spreads[line["bonus"]][2] - spreads[line["bonus"]][0])
             share = step / spread
             line["costs"] = [max(1, round(PRICE_K * share * n)) for n in range(1, len(line["levels"]) + 1)]
+
+
+def add_universal_lines(lines, keys, available):
+    """Every unit type's stat lines (UNIVERSAL_STATS, in that order) and Scare Enemies, after the lines
+    its own tree gives (those keep the tree's step). Accuracy and Ammunition only for units that shoot;
+    Scare Enemies not for units that already frighten."""
+    out = collections.OrderedDict()
+    for bonus, label, icon, step, missile_only in UNIVERSAL_STATS:
+        if bonus in EXPERIMENTAL and bonus not in EXPERIMENTAL_ON:
+            continue
+        if missile_only and not has_missiles(keys):
+            continue
+        key = "stat_" + bonus
+        if key in lines:
+            lines[key]["from_tree"] = True
+            out[key] = lines[key]
+        else:
+            out[key] = {"key": key, "label": label, "bonus": bonus, "advanced": False, "kind": "stat",
+                        "icon": f"data/ui/frontend ui/skills/{icon if icon in available else 'skill_morale'}.tga",
+                        "levels": None if step is None else [step * i for i in range(1, STAT_MAX_LEVEL + 1)]}
+    for key, line in lines.items():
+        if key not in out and line.get("kind", "stat") == "stat":
+            out[key] = line
+    if "passive_scares_men" not in lines and not any(already_scares(k) for k in keys):
+        out["passive_scares_men"] = {"key": "passive_scares_men", "label": "Scare Enemies", "bonus": "scares_men",
+                                     "advanced": True, "icon": STAT_ICON_PATH, "levels": [1.0], "kind": "passive"}
+    for key, line in lines.items():
+        if key not in out:
+            out[key] = line
+    return out
+
+
+SCARES = set()   # units that already frighten (CA gives some scares_men per unit record)
+
+
+def already_scares(key):
+    return key in SCARES or bool((STATS.get(key) or {}).get("fear_effect"))
+
+
+def fill_median_steps(catalog):
+    """Lines a unit's tree doesn't give (levels None) use the median step of the trees that do."""
+    steps = collections.defaultdict(list)
+    for fam in catalog:
+        for line in fam["lines"]:
+            if line.get("from_tree") and line["levels"]:
+                steps[line["bonus"]].append(line["levels"][0])
+    for fam in catalog:
+        for line in fam["lines"]:
+            if line["kind"] == "stat" and line["levels"] is None:
+                vals = sorted(steps[line["bonus"]]) or [1.0]
+                step = vals[len(vals) // 2]
+                line["levels"] = [step * i for i in range(1, STAT_MAX_LEVEL + 1)]
 
 
 def merge_stat_lines(lines):
@@ -577,7 +664,8 @@ def build(catalog):
                     seen_effects.add(ek)
                     eff_rows.append({"effect": ek, "icon": ICON, "priority": 900})
                     junc_rows.append({"bonus_value_id": line["bonus"], "effect": ek, "unit_record_key": u})
-                    eff_loc.append(("effects_description_" + ek, f"%+n {BONUS_LABEL.get(line['bonus'], line['label'])} for {disp} (veteran upgrades)"))
+                    pct = "%" if line["bonus"] in PERCENT else ""
+                    eff_loc.append(("effects_description_" + ek, f"%+n{pct} {BONUS_LABEL.get(line['bonus'], line['label'])} for {disp} (veteran upgrades)"))
             for lvl, value in enumerate(line["levels"], 1):
                 bk = bundle_key(fam["id"], line, lvl)
                 title = f"Veterans: {disp} {line['label']}" + (f" {ROMAN[lvl]}" if len(line["levels"]) > 1 else "")
@@ -593,6 +681,7 @@ def build(catalog):
 
 BONUS_LABEL = {v[0]: v[1] for v in BONUS.values()}
 BONUS_LABEL["scares_men"] = "Scare Enemies"
+BONUS_LABEL.update({b: label for b, label, _, _, _ in UNIVERSAL_STATS})
 STAT_ICON_PATH = "data/ui/frontend ui/skills/skill_melee_attack.tga"
 
 
@@ -719,6 +808,7 @@ def lua_data(catalog, camp):
                           "bonus": line["bonus"], "stat": BONUS_LABEL.get(line["bonus"], line["label"]),
                           "kind": line["kind"], "column": line["column"], "row": line["row"],
                           "desc": line.get("desc", ""), "gated": line.get("gated", False), "research": line.get("research", ""),
+                          "pct": line["bonus"] in PERCENT,
                           "levels": [{"bundle": "" if ability else bundle_key(fam["id"], line, i), "value": v,
                                       "cost": line["cost"] if ability
                                       else (PASSIVE_COST if line["kind"] == "passive" else line["costs"][i - 1])}

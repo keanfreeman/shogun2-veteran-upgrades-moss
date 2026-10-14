@@ -432,10 +432,10 @@ local function vu_refresh_panel()
 				tip = string.format("%s\nThis unit frightens nearby enemies, lowering their morale.\n%s", line.label,
 					owned > 0 and "Unlocked." or string.format("Cost: %d points (you have %d).", line.levels[1].cost, p.points))
 			elseif nxt then
-				tip = string.format("%s %s\n+%g %s for %s.\nCost: %d point%s (you have %d).",
-					line.label, owned + 1, nxt.value, line.stat, fam.name, nxt.cost, nxt.cost == 1 and "" or "s", p.points)
+				tip = string.format("%s %s\n+%g%s %s for %s.\nCost: %d point%s (you have %d).",
+					line.label, owned + 1, nxt.value, line.pct and "%" or "", line.stat, fam.name, nxt.cost, nxt.cost == 1 and "" or "s", p.points)
 			else
-				tip = string.format("%s (max)\n+%g %s for %s.", line.label, line.levels[owned].value, line.stat, fam.name)
+				tip = string.format("%s (max)\n+%g%s %s for %s.", line.label, line.levels[owned].value, line.pct and "%" or "", line.stat, fam.name)
 			end
 			for _, a in ipairs({ nd.addr, nd.icon_addr, nd.name_addr }) do
 				pcall(function() UIComponent(a):SetTooltipText(tip, true) end)
@@ -1177,6 +1177,18 @@ local VU_RETRAIN_OFFSET = 1.0   -- map distance between the army and the spawned
 local function vu_candidate(fam, mask, unit)
 	local d = unit and CampaignUI.InitialiseUnitDetails(unit)
 	local key = d and d.UnitRecord and d.UnitRecord.Key
+	if VU_DEBUG and key then   -- card numbers, to check which upgrades take effect (logged when they change)
+		local parts = {}
+		for _, f in ipairs({ "Charge", "Ammunition", "Accuracy", "Defence", "Firepower", "Range", "Men", "Experience" }) do
+			parts[#parts + 1] = f .. "=" .. tostring(d[f])
+		end
+		local line = table.concat(parts, " ")
+		VU.card_seen = VU.card_seen or {}
+		if VU.card_seen[tostring(unit)] ~= line then
+			VU.card_seen[tostring(unit)] = line
+			vu_log("card:", key, line)
+		end
+	end
 	local info = key and VU_KEY_INFO[key]
 	if info and info.fam == fam then
 		local to = vu_target(info.copy, mask)
