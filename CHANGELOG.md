@@ -1,15 +1,13 @@
 # Changelog
 
-## Unreleased (in testing)
-- Every unit type can buy Melee Attack, Melee Defence, Armour and Morale, Accuracy if it shoots,
-  and Scare Enemies unless it already frightens, whether or not its multiplayer tree has them.
-  Artillery gets Armour, Morale and Accuracy only.
-- Charge Bonus, Speed, Fatigue Resistance and Ammunition were tried per unit type and did nothing
-  in game; they are off (VU_EXPERIMENTAL=all builds them for further tests).
-- The upgrade tree puts one line per row under each heading (side by side, neighbouring headings'
-  nodes overlapped); percentage bonuses show as "+5%".
-- AI clans' upgrade levels are saved in chunks, so up to 12 lines per unit type stay exact.
-- Debug builds log the unit cards' numbers (charge, ammunition, ...) when they change.
+## 1.1.0
+- Every unit type can buy Melee Attack, Melee Defence, Armour and Morale, Accuracy if it shoots, and
+  Scare Enemies unless it already frightens, whether or not its multiplayer tree has them. Artillery
+  gets Armour, Morale and Accuracy only. (Charge, speed, fatigue and ammunition were tried per unit
+  type and did nothing in game; VU_EXPERIMENTAL=all builds them for further tests.)
+- The upgrade tree shows one line per row under each heading.
+- AI clans' upgrade levels are saved in chunks of 6 lines, so every saved number stays exact.
+- Debug builds log the unit cards' numbers when they change.
 
 ## 1.0.0 (2026-10-14)
 First release for Master of Strategy Sengoku, based on Veteran Upgrades 1.1.0.

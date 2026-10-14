@@ -5,7 +5,8 @@ The [Veteran Upgrades](https://github.com/keanfreeman/shogun2-veteran-upgrades) 
 campaign, covering the units a MoSS campaign actually recruits, including MoSS's own.
 
 - **Clan points:** 1 per battle your units fight in, win or lose.
-- **Stats** (Melee Attack, Melee Defence, Armour, Morale, Accuracy) can be bought up to 10 times;
+- **Stats for every unit type** (Melee Attack, Melee Defence, Armour, Morale; Accuracy for units that
+  shoot; Scare Enemies; artillery: Armour, Morale, Accuracy) can be bought up to 10 times;
   each pick costs more, and stronger stats cost more.
 - **Abilities:** one "Abilities" upgrade per unit type unlocks all of its abilities at once (Inspire
   Unit, Hold Firm, ...). Each unit has a single "(Upgraded)" version, so the recruitment list grows by
