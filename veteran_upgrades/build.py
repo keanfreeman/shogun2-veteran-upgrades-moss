@@ -88,7 +88,6 @@ EXPERIMENTAL = {"charge_bonus", "mod_land_movement_battle", "fatigue_resistance"
 _exp = os.environ.get("VU_EXPERIMENTAL", "all")
 EXPERIMENTAL_ON = EXPERIMENTAL if _exp == "all" else set() if _exp == "none" else set(_exp.split(",")) & EXPERIMENTAL
 PERCENT = {"ammo_mod", "mod_land_movement_battle"}   # bonuses whose values are percentages
-STATS_PER_ROW = 2   # stats side by side under a heading; more go on the next row
 # MP "enable ability" effects -> campaign unit ability to clone (gated) for the family.
 ABILITY_MAP = {
     "enable_ability_banzai": "banzai", "enable_ability_inspire": "inspire_unit", "enable_ability_rally": "rally",
@@ -507,16 +506,15 @@ def build_catalog(camp):
         lines = add_universal_lines(merge_stat_lines(lines), keys, available)
         if not lines:
             continue
+        # One line per row under each heading, in line order (stats, then passives, then abilities):
+        # side by side, the nodes of neighbouring headings collided.
         per_column = collections.Counter()
         for line in lines.values():
             kind = line.get("kind", "stat")
             line.setdefault("kind", kind)
             line["column"] = ABILITY_COLUMN.get(line.get("ability"), "melee") if kind == "ability" else COLUMN.get(line["bonus"], "melee")
-            if kind in ("ability", "passive"):
-                line["row"] = 2
-            else:   # STATS_PER_ROW side by side per heading, then the next row
-                line["row"] = per_column[line["column"]] // STATS_PER_ROW
-                per_column[line["column"]] += 1
+            line["row"] = per_column[line["column"]]
+            per_column[line["column"]] += 1
         shown = sorted({names.get(k, units[k]["on_screen_name"]) for k in keys})
         catalog.append({"id": base.lower(), "display": names.get(base, units[base]["on_screen_name"]),
                         "portrait": family_portrait(base, square), "category": av["unit_ui_category"],

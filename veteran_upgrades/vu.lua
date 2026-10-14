@@ -353,12 +353,23 @@ local function vu_layout(fam)
 	-- stats per column, in line order
 	local col_stats, stat_seen = {}, {}
 	for _, line in ipairs(fam.lines) do
-		-- Lines sharing a column and row sit side by side; a stat's Advanced line sits under its basic line.
+		-- Lines sharing a column and a row sit side by side (build.py gives each line its own row).
 		local col, slot = line.column, line.kind == "ability" and line.key or line.bonus
 		col_stats[col] = col_stats[col] or {}
-		local tag = col .. ":" .. (line.kind == "stat" and "stat" or "unlock")
+		local tag = col .. ":" .. line.row
 		col_stats[tag] = col_stats[tag] or {}
 		if not stat_seen[slot] then stat_seen[slot] = true table.insert(col_stats[tag], slot) end
+	end
+	-- Keep the last row above the OK/Cancel bar: squeeze the row spacing if the tallest column needs it.
+	local max_row = 0
+	for _, line in ipairs(fam.lines) do if line.row > max_row then max_row = line.row end end
+	if max_row > 0 and VU.nodes[1] then
+		pcall(function()
+			local _, ok_y = UIComponent(vu_child(VU.panel_addr, "button_ok")):Position()
+			local nh = UIComponent(VU.nodes[1].addr):Height()
+			local fit = math.floor((ok_y - 10 - top_y - nh) / max_row)
+			if fit > 0 and fit < row_h then row_h = fit end
+		end)
 	end
 	VU.geom = { top_y = top_y, row_h = row_h }
 	local spare = 1
@@ -377,7 +388,7 @@ local function vu_layout(fam)
 		local nw = 0
 		pcall(function() nw = UIComponent(nd.addr):Width() end)
 		local slot = line.kind == "ability" and line.key or line.bonus
-		local stats, k = col_stats[col .. ":" .. (line.kind == "stat" and "stat" or "unlock")], 1
+		local stats, k = col_stats[col .. ":" .. line.row], 1
 		for j, b in ipairs(stats) do if b == slot then k = j end end
 		local spacing = nw + 40
 		local cx = (hx or nd.x) + hw / 2 + (k - (#stats + 1) / 2) * spacing
