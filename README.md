@@ -10,10 +10,10 @@ campaign, covering the units a MoSS campaign actually recruits, including MoSS's
 - **Abilities:** one "Abilities" upgrade per unit type unlocks all of its abilities at once (Inspire
   Unit, Hold Firm, ...). Each unit has a single "(Upgraded)" version, so the recruitment list grows by
   at most one entry per unit.
-- **Retrain** existing units into their Veteran version (one army, or all armies at once).
+- **Retrain** existing units into their Upgraded version (one army, or all armies at once).
 - **AI clans** (MoSS's added clans too) earn points the same way and buy stat upgrades.
 
-Needs MoSS's mandatory packs (Database, Files 1-4 and one of the two clan packs). Use it **instead of**
+Needs MoSS's mandatory packs (Database, Files 1-4 and Original Clans; New Clans isn't supported yet). Use it **instead of**
 the regular Veteran Upgrades, not together with it: both add their code to the same game file.
 Sengoku Jidai only. Start a new campaign after enabling it.
 

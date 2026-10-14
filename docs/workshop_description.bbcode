@@ -3,7 +3,7 @@
 
 [h2]Requirements[/h2]
 [list]
-[*]MoSS's mandatory parts: Database, Files 1-4, and ONE of the two clan packs (Original or New Clans).
+[*]MoSS's mandatory parts: Database, Files 1-4 and [b]Original Clans[/b]. (New Clans is not supported yet: a few clans' recruitment rules differ there.)
 [*][b]Do not enable the regular Veteran Upgrades at the same time[/b] - use one or the other.
 [*]Sengoku Jidai only. [b]Start a new campaign[/b] after enabling the mod.
 [/list]
@@ -13,7 +13,7 @@
 [*][b]Clan points:[/b] your clan earns 1 point for every battle its units fight in, win or lose.
 [*][b]Veterans button:[/b] under the advisor button (top left). It lists the unit types your clan can recruit; pick one to open its upgrade tree.
 [*][b]Stats:[/b] Melee Attack, Melee Defence, Armour, Morale and Accuracy can each be bought up to 10 times. Every pick costs more than the last, and stronger stats cost more.
-[*][b]Abilities:[/b] one Abilities upgrade per unit type unlocks all of its abilities at once (e.g. Inspire Unit and Hold Firm). Banzai and Blinding Grenades still need their usual research.
+[*][b]Abilities:[/b] one Abilities upgrade per unit type unlocks all of its abilities at once (e.g. Inspire Unit and Hold Firm). Abilities that need research in MoSS still do; the tooltip names the research (e.g. Flammable Arrow for Flaming Arrows). Only abilities that work under MoSS are offered, and none the unit already has.
 [*][b]Upgrades apply clan-wide[/b] to every unit of that type: stats to units already in your armies, abilities to new recruits.
 [*][b]Retrain:[/b] existing units get their abilities by retraining. With an army selected, Retrain swaps that army's units; with nothing selected, Retrain all covers every army. Retrained units appear as a new stack beside the army and lose their experience.
 [*][b]Respec:[/b] Reset refunds a unit type's upgrades for a 2-point fee.
@@ -23,8 +23,10 @@
 [h2]Notes[/h2]
 [list]
 [*]Each unit has one extra "(Upgraded)" version with its abilities. Recruitment switches to it at your next turn after you buy the Abilities upgrade; the plain version stays in the list, greyed out.
-[*]Ships and generals' bodyguards are not covered, nor are two of MoSS's artillery pieces (Dutch Culverin, Hiya Taiho).
+[*]Ships and generals' bodyguards are not covered, nor are two of MoSS's artillery pieces (Dutch Culverin, Hiya Taiho). Unit types that only get stat upgrades already have every ability their tree offers.
+[*][b]Unit caps:[/b] the "(Upgraded)" version counts toward its own cap, separate from the plain version's. Retrain your plain units after buying Abilities rather than keeping both.
+[*]Works with MoSS's optional parts (castles, reskins, replenishment, unrest, difficulty, no agents, no realm divide). With "Nanban Units For All", the Portuguese units stay upgradeable only for the clan that normally recruits them.
 [/list]
 
 [h2]Source[/h2]
-Open source (MIT) - bug reports and contributions welcome.
+Open source (MIT), built from the [url=https://github.com/keanfreeman/shogun2-veteran-upgrades]Veteran Upgrades source[/url]. Bug reports welcome: please include vu_log.txt and used_mods.txt from the game folder (Browse local files).
