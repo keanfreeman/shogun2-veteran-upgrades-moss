@@ -1027,6 +1027,11 @@ end
 
 local vu_ai_spend, vu_ai_clan   -- defined with the points code below
 
+local VU_AL_CHUNK = 6
+local function vu_al_key(faction, fam, chunk)   -- chunk 0 keeps the old key, so older saves still load
+	return "VU_AL" .. (chunk > 0 and tostring(chunk + 1) or "") .. "_" .. faction .. "__" .. fam.id
+end
+
 local function VU_OnSavingGame(context)
 	vu_guard("SavingGame", function()
 		local gi = EpisodicScripting.game_interface
@@ -1037,17 +1042,23 @@ local function VU_OnSavingGame(context)
 			end
 		end
 		-- AI clans: a flag per clan, its pool, and per unit type it has fought with the levels packed
-		-- base 16 (levels go up to 10).
+		-- base 16 (levels go up to 10), VU_AL_CHUNK lines per value: 16^6 - 1 = 2^24 - 1 still fits
+		-- exactly if the game keeps the number as a 32-bit int or float (11 lines would not).
 		local n = 0
 		for faction, clan in pairs(VU.ai or {}) do
 			gi:save_named_value("VU_AF_" .. faction, 1, context)
 			gi:save_named_value("VU_APOOL_" .. faction, clan.pool, context)
 			for _, fam in ipairs(VU_FAMILIES) do
 				if clan.used[fam.id] then
-					local lv, packed = clan.levels[fam.id] or {}, 0
-					for i = #fam.lines, 1, -1 do packed = packed * 16 + (lv[fam.lines[i].key] or 0) end
+					local lv = clan.levels[fam.id] or {}
 					gi:save_named_value("VU_AU_" .. faction .. "__" .. fam.id, 1, context)
-					gi:save_named_value("VU_AL_" .. faction .. "__" .. fam.id, packed, context)
+					for c = 0, math.ceil(#fam.lines / VU_AL_CHUNK) - 1 do
+						local packed = 0
+						for i = math.min(#fam.lines, (c + 1) * VU_AL_CHUNK), c * VU_AL_CHUNK + 1, -1 do
+							packed = packed * 16 + (lv[fam.lines[i].key] or 0)
+						end
+						gi:save_named_value(vu_al_key(faction, fam, c), packed, context)
+					end
 				end
 			end
 			n = n + 1
@@ -1076,11 +1087,14 @@ local function VU_OnLoadingGame(context)
 				for _, fam in ipairs(VU_FAMILIES) do
 					if gi:load_named_value("VU_AU_" .. faction .. "__" .. fam.id, 0, context) == 1 then
 						clan.used[fam.id] = true
-						local packed, lv = gi:load_named_value("VU_AL_" .. faction .. "__" .. fam.id, 0, context), {}
-						for i = 1, #fam.lines do
-							local l = packed % 16
-							if l > 0 then lv[fam.lines[i].key] = l end
-							packed = (packed - l) / 16
+						local lv = {}
+						for c = 0, math.ceil(#fam.lines / VU_AL_CHUNK) - 1 do
+							local packed = gi:load_named_value(vu_al_key(faction, fam, c), 0, context)
+							for i = c * VU_AL_CHUNK + 1, math.min(#fam.lines, (c + 1) * VU_AL_CHUNK) do
+								local l = packed % 16
+								if l > 0 then lv[fam.lines[i].key] = l end
+								packed = (packed - l) / 16
+							end
 						end
 						clan.levels[fam.id] = lv
 					end

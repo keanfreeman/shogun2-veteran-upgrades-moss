@@ -129,6 +129,16 @@ F("LoadingGame", {})
 F("UICreated", { string = "Campaign UI", component = MOCK.root })
 MOCK.click(MOCK.find("vu_button"))
 check(tonumber(pool_text()) == saved_pool, "pool restored after load")
+-- AI levels: every packed value fits 24 bits, and save -> load -> save gives the same values
+local before, big = {}, 0
+for k, v in pairs(MOCK.saved) do
+	if string.sub(k, 1, 5) == "VU_AL" then before[k] = v if v >= 2 ^ 24 then big = big + 1 end end
+end
+check(next(before) ~= nil and big == 0, "AI levels saved, all below 2^24 (" .. big .. " too big)")
+F("SavingGame", {})
+local same = true
+for k, v in pairs(before) do if MOCK.saved[k] ~= v then same = false end end
+check(same, "AI levels survive a save/load round trip")
 
 -- Report ---------------------------------------------------------------------------------
 RESULT = { passed = passed, failures = failures }
