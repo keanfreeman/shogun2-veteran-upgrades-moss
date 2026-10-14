@@ -8,7 +8,7 @@ campaign, covering the units a MoSS campaign actually recruits, including MoSS's
 - **Stats** (Melee Attack, Melee Defence, Armour, Morale, Accuracy) can be bought up to 10 times;
   each pick costs more, and stronger stats cost more.
 - **Abilities:** one "Abilities" upgrade per unit type unlocks all of its abilities at once (Inspire
-  Unit, Hold Firm, ...). Each unit has a single "(Veteran)" version, so the recruitment list grows by
+  Unit, Hold Firm, ...). Each unit has a single "(Upgraded)" version, so the recruitment list grows by
   at most one entry per unit.
 - **Retrain** existing units into their Veteran version (one army, or all armies at once).
 - **AI clans** (MoSS's added clans too) earn points the same way and buy stat upgrades.
@@ -20,7 +20,7 @@ Sengoku Jidai only. Start a new campaign after enabling it.
 ## How it works
 
 The engine can't change one unit's abilities, and copies of ability records are ignored in battle.
-So every unit gets one **unit record copy** (`<unit>_VU`, "(Veteran)") with all of its unlockable
+So every unit gets one **unit record copy** (`<unit>_VU`, "(Upgraded)") with all of its unlockable
 abilities attached. When you buy the Abilities upgrade, the mod switches your clan's recruitment to
 the copy (per-faction recruitment locks), and Retrain replaces existing units with it. Stat upgrades are
 effect bundles applied to your faction, covering the originals and all copies.

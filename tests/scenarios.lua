@@ -17,7 +17,10 @@ check(#YARI_FAM.copies == 2 and #YARI_FAM.copies[1].keys == 1, "one copy per uni
 -- Campaign start ----------------------------------------------------------------
 F("LoadingGame", {})
 F("NewCampaignStarted", {})
-check(count(MOCK.locks) > 9000, "copies prelocked for every clan at NewCampaignStarted (" .. count(MOCK.locks) .. ")")
+local n_copies = 0
+for _, f in ipairs(VU_UNDER_TEST.families) do for _, c in ipairs(f.copies) do n_copies = n_copies + #c.keys end end
+check(count(MOCK.locks) == n_copies * #VU_UNDER_TEST.factions,
+	"every copy prelocked for every clan at NewCampaignStarted (" .. count(MOCK.locks) .. " = " .. n_copies .. " x " .. #VU_UNDER_TEST.factions .. ")")
 check(MOCK.locks["oda/" .. COPY], "AI clans can't recruit copies")
 check(not MOCK.locks["shimazu/" .. YARI], "plain units are not locked at start")
 F("UICreated", { string = "Campaign UI", component = MOCK.root })

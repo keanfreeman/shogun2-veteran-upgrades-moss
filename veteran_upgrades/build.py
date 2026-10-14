@@ -117,8 +117,9 @@ DEBUG = os.environ.get("VU_DEBUG") == "1"   # debug build: logs the panel's UI t
 # the Lua side sees a single ability line, "ab_all", so mask 1 = that copy.
 RANGE_ABILITY = "range_effect"          # "Increased Range": +25 range for 50 s; range_mod has no effect
 RANGE_EFFECTS = {"mod_missile_range"}   # MP skill effects that become the range unlock
-# Names: the copy is "<unit name> (Veteran)"; the plain unit keeps MoSS's name.
-COPY_SUFFIX = " (Veteran)"
+# Names: the copy is "<unit name> (Upgraded)"; the plain unit keeps MoSS's name. ("Veteran" is taken:
+# 49 MoSS units are called "Veteran ...".)
+COPY_SUFFIX = " (Upgraded)"
 ALL_ABILITIES = "ab_all"   # the single ability line
 COPY_REF_FIELD = {  # tables copied row-for-row from the base unit -> field holding the unit key
     "unit_stats_land_tables": "key", "units_to_exclusive_faction_permissions_tables": "key",
@@ -268,6 +269,49 @@ def family_portrait(base_key, square):
 
 
 ABIL_JUNC, ABILITIES, ICON_FILES = [], {}, set()
+STATS, PROJECTILE, ENABLED, CARRIERS = {}, {}, set(), {}
+# Projectile-swapping abilities need the matching missile weapon (MoSS's range_effect fires flaming arrows).
+PROJECTILE_WEAPON = {"arrow": "bow", "grenade": "sling"}
+
+
+def unit_kind(key):
+    """(missile weapon, mounted) - what decides which abilities make sense for a unit."""
+    s = STATS.get(key) or {}
+    return s.get("primary_missile_weapon"), s.get("mount_model") is not None
+
+
+def enabled_abilities():
+    """Gated abilities something in the game can enable: an enabling effect used by a technology,
+    building, character skill, trait or effect bundle. (MoSS gates Rapid Volley with nothing enabling it.)"""
+    used = set()
+    for table, field in (("technology_effects_junction_tables", "effect"), ("building_effects_junction_tables", "effect"),
+                         ("building_factionwide_effects_junctions_tables", "effect"),
+                         ("character_skill_level_to_effects_junctions_tables", "effect_key"),
+                         ("effect_bundles_to_effects_junctions_tables", "effect_key"), ("trait_level_effects_tables", "effect")):
+        used |= {r[field] for r in load(table)}
+    return {r["unit_ability"] for r in load("effect_bonus_value_unit_ability_junctions_tables") if r["effect"] in used}
+
+
+def ability_fits(ab, keys):
+    """Can every unit of the family use this ability?
+      * a gated ability needs something that enables it;
+      * one that swaps the projectile needs the matching weapon (arrows: bows, grenades: slings);
+      * if some units have it natively, only units of those kinds (missile weapon, mounted) get it -
+        MoSS gives Swooping Crane (cantabrian_circle) to bow cavalry only, not to gun cavalry."""
+    if ABILITIES[ab]["requires_effect_enabling"] and ab not in ENABLED:
+        return False
+    projectile = (PROJECTILE.get(ab) or "").lower()
+    for part, weapon in PROJECTILE_WEAPON.items():
+        if part in projectile and not all(unit_kind(k)[0] == weapon for k in keys):
+            return False
+    kinds = CARRIERS.get(ab)
+    return not kinds or all(unit_kind(k) in kinds for k in keys)
+
+
+def has_missiles(keys):
+    """Any unit of the family with a missile weapon or artillery (Accuracy does nothing otherwise)."""
+    return any((STATS.get(k) or {}).get("primary_missile_weapon") or (STATS.get(k) or {}).get("artillery_model")
+               or (STATS.get(k) or {}).get("siege_gun") for k in keys)
 
 
 def ability_icon(ab):
@@ -282,14 +326,21 @@ def campaign_unit(camp, key):
 
 
 def build_catalog(camp):
-    global ABIL_JUNC, ABILITIES, ICON_FILES
+    global ABIL_JUNC, ABILITIES, ICON_FILES, STATS, PROJECTILE, ENABLED, CARRIERS
     from tools_packread import read_index
     ABIL_JUNC = load("unit_to_unit_abilities_junctions_tables")
     ABILITIES = {r["key"]: r for r in load("unit_abilities_tables")}
+    STATS = {r["key"]: r for r in load("unit_stats_land_tables")}
+    PROJECTILE = {r["key"]: r.get("activated_projectile") for r in load("unit_special_abilities_tables")}
+    ENABLED = enabled_abilities()
     ICON_FILES = {n.lower().split("\\")[-1] for n, _, _ in read_index(DATA) if n.lower().startswith("ui\\battle ui\\button icons\\")}
     available = icon_files()
     square = portraits()
     units = {r["key"]: r for r in load("units_tables")}
+    CARRIERS = collections.defaultdict(set)   # campaign units only (not the multiplayer records)
+    for r in ABIL_JUNC:
+        if r["unit_name"] in STATS and r["unit_name"] in units and not EXCLUDE.search(r["unit_name"]):
+            CARRIERS[r["ability"]].add(unit_kind(r["unit_name"]))
     skills = {r["key"]: r for r in load("avatar_skills_tables")}
     effects = collections.defaultdict(list)
     for e in load("avatar_skill_effects_juncs_tables"):
@@ -346,6 +397,8 @@ def build_catalog(camp):
             for e in effects.get(sk["key"], []):
                 if e["effect"] not in BONUS or e["effect_value"] <= 0:
                     continue
+                if BONUS[e["effect"]][0] == "accuracy_mod" and not has_missiles(keys):
+                    continue
                 bonus, label = BONUS[e["effect"]]
                 line = lines.setdefault(sk["skill_sub_chain"], {
                     "key": sk["skill_sub_chain"], "label": label + (" (Advanced)" if sk["advanced_skill"] else ""),
@@ -366,7 +419,8 @@ def build_catalog(camp):
                     lines.setdefault("passive_" + bonus, {"key": "passive_" + bonus, "label": label, "bonus": bonus,
                         "advanced": True, "icon": STAT_ICON_PATH, "levels": [value], "kind": "passive"})
                 ab = RANGE_ABILITY if e["effect"] in RANGE_EFFECTS else ABILITY_MAP.get(e["effect"])
-                if ab and ab in ABILITIES and ab not in native and ABILITIES[ab]["bullet_text"] not in taken:
+                if (ab and ab in ABILITIES and ab not in native and ABILITIES[ab]["bullet_text"] not in taken
+                        and ability_fits(ab, keys)):
                     abilities.append(ab)
                     taken.add(ABILITIES[ab]["bullet_text"])
         if abilities:
