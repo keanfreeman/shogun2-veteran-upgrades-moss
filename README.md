@@ -13,6 +13,8 @@ campaign, covering the units a MoSS campaign actually recruits, including MoSS's
   at most one entry per unit.
 - **Retrain** existing units into their Upgraded version (one army, or all armies at once).
 - **AI clans** (MoSS's added clans too) earn points the same way and buy stat upgrades.
+- **Multiplayer campaigns:** each player has their own points; purchases take effect for everyone
+  when the buyer ends the turn.
 
 Needs MoSS's mandatory packs (Database, Files 1-4 and Original Clans; New Clans isn't supported yet). Use it **instead of**
 the regular Veteran Upgrades, not together with it: both add their code to the same game file.
@@ -35,6 +37,11 @@ The data comes from the game's packs with MoSS's Database and Original Clans pac
 Units with the same in-game name and class (MoSS's `_ikko` variants) form one unit type; units
 without a multiplayer tree borrow the tree of a multiplayer unit of the same class; unit types that
 no clan can recruit under MoSS are left out.
+
+In multiplayer the game runs every player's campaign in lockstep, and changes made from a click
+would exist on one machine only. So a purchase is sent as a game command - the buyer's machine
+renames a few of its units with the purchase data - and every machine reads those names and applies
+the purchase at the buyer's turn end. Details are in the "Multiplayer campaigns" part of `vu.lua`.
 
 [`docs/ENGINE_NOTES.md`](docs/ENGINE_NOTES.md) lists what we learned about the engine, including
 the things that crash it.
@@ -77,7 +84,8 @@ The mod always writes a short `vu_log.txt` (purchases, battles, errors).
 ## Testing
 
 `tests/run_tests.py` loads the built pack's `export_advice.lua` against a mock of the campaign scripting API
-(`tests/mock_engine.lua`): the full flows, and a smoke test for a few clans including one of MoSS's. It can't
+(`tests/mock_engine.lua`): the full flows, a smoke test for a few clans including one of MoSS's,
+and a multiplayer campaign on two mock machines in lockstep that must stay identical. It can't
 catch engine crashes, so changes still need a play test, ideally with `PROTON_LOG=1` / a debugger
 for native crashes.
 
